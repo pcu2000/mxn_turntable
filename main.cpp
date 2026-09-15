@@ -65,11 +65,17 @@ PCA9685 PCA[] = {
 #define LEDMAXVALUE 4095
 
 
+#define SPEED_COLUMN 1 //setRGBWSlowOnOffColumn
+#define SKIP_COLUMN 20 
+#define SPEED_ALL_MODULE 1 //setRGBWSlowOnOffAllModule
+#define SKIP_ALL_MODULE 20
+#define SPEED_3 0 //setRGBWSlowOnOff3
+#define SKIP_3 2
 
 
 
 const uint16_t ColorNumberPcs = 12; //Anzahl Farben
-static u_int16_t ledCollorsArray[ColorNumberPcs][4] = {
+static u_int16_t ledCollorsArray[ColorNumberPcs][4] = { //bestimmte Farben werden definiert
     {4095,0,0,0}, //R,G,B,W
     {0,4095,0,0},
     {0,0,4095,0},
@@ -84,7 +90,7 @@ static u_int16_t ledCollorsArray[ColorNumberPcs][4] = {
     {0,0,0,0}
   };
 
-const uint16_t sinLUT[100] = { //Sinuskurve Helligkeit
+const uint16_t sinLUT[100] = { //Sinuskurve Helligkeit, je höher Zahl, desto heller
        0,    1,    3,    6,   10,   15,   21,   28,   36,   45,
       55,   66,   78,   91,  105,  120,  135,  152,  170,  189,
      208,  229,  251,  273,  297,  321,  346,  372,  400,  428,
@@ -105,14 +111,12 @@ void setRGBWValueBar(u_int8_t row, u_int16_t ledR, u_int16_t ledG, u_int16_t led
 void setRGBWValueBarAllModule(u_int8_t row, u_int16_t ledR, u_int16_t ledG, u_int16_t ledB, u_int16_t ledW);
 void setRGBWSlowOnOff(u_int8_t led, bool ledR, bool ledG, bool ledB, bool ledW, bool on, u_int16_t speed);
 void setRGBWSlowOnOffAllModule(u_int8_t led, bool ledR, bool ledG, bool ledB, bool ledW, bool on, u_int16_t speed, u_int16_t SkipModule);
-//zusätzlich ein Modul überspringen
 
 void checkHardware();
 
 void setRGBWSlowOnOffColumn (bool on, u_int16_t speed, u_int8_t SkipModule);
 void setRGBWValueColumn(u_int8_t offset, int pwmValue, bool ledR, bool ledG, bool ledB, bool ledW, bool on, u_int16_t speed);
-
-
+void setRGBWSlowOnOff3(u_int8_t led, bool ledR, bool ledG, bool ledB, bool ledW, bool direction, u_int16_t speed, u_int16_t SkipModule);
 
 
 void setup()
@@ -212,78 +216,45 @@ void loop()
   }*/
 
   
+  setRGBWSlowOnOffColumn(1, SPEED_COLUMN, SKIP_COLUMN); //LED's leuchten spaltenweise auf und bewegen sich einmal im Kreis
 
-  setRGBWSlowOnOffColumn(1, 1, 20); //Spalten gehen einmal im Kreis herum
 
-  //Lichtablauf balken per Array, nur bei einem Panel
-  for (int i = 0; i < ColorNumberPcs; i++)
-  {
-    for(int y = 0; y < 3; y++){ //Für Module nacheinander, funktioniert noch nicht so, wie es soll
-      for(int z = 0; z < 8; z++){
-        setRGBWValue(z/4+z/8, z%4, ledCollorsArray[i+y][0], ledCollorsArray[i+y][1], ledCollorsArray[i+y][2], ledCollorsArray[i+y][3]);
-        setRGBWValue(z/4+z/8+2, z%4, ledCollorsArray[i+y][0], ledCollorsArray[i+y][1], ledCollorsArray[i+y][2], ledCollorsArray[i+y][3]);
-        setRGBWValue(z/4+z/8+4, z%4, ledCollorsArray[i+y][0], ledCollorsArray[i+y][1], ledCollorsArray[i+y][2], ledCollorsArray[i+y][3]);
-        setRGBWValue(z/4+z/8+6, z%4, ledCollorsArray[i+y][0], ledCollorsArray[i+y][1], ledCollorsArray[i+y][2], ledCollorsArray[i+y][3]);
-        setRGBWValue(z/4+z/8+8, z%4, ledCollorsArray[i+y][0], ledCollorsArray[i+y][1], ledCollorsArray[i+y][2], ledCollorsArray[i+y][3]);
-        delay(50);
-      }
-      
+  for (int i = 0; i < ColorNumberPcs; i++){ //Alle Farben (oben definiert) werden nacheinander angezeigt
+    for(int z = 0; z < 8; z++){
+      setRGBWValueBarAllModule(z, ledCollorsArray[i][0], ledCollorsArray[i][1], ledCollorsArray[i][2], ledCollorsArray[i][3]);
+      delay(100);
     }
-    
   }
-  
 
 
-
-
-  //Balkenweise, nur bei einem Panel
-  //Lichtablauf einzeln mit Dimmfunktion
+  //Lichtablauf von innen nach aussen mit Dimmfunktion
    for (int i = 0; i < 8; i++)
-    {//i steht für die Zeile. Die 1 an der zweitletzten Stelle ist fürs Einschalten
-      setRGBWSlowOnOffAllModule(i, 1, 0, 1, 0, 1, 1, 20);  // Serial port for debugging purposes 
+    {//i steht für die Zeile. Die 1 an der sechsten Stelle ist fürs Einschalten
+      setRGBWSlowOnOffAllModule(i, 1, 0, 1, 0, 1, SPEED_ALL_MODULE, SKIP_ALL_MODULE);
       Serial.println("Dimmenup");
     } 
 
   for (int i = 0; i < 8; i++)
   {
-    setRGBWSlowOnOffAllModule(i, 1, 0, 1, 0, 0, 1, 20); 
+    setRGBWSlowOnOffAllModule(i, 1, 0, 1, 0, 0, SPEED_ALL_MODULE, SKIP_ALL_MODULE); 
     Serial.println("Dimmendown");  
   }
 
 
-  //Balkenweise, bei allen Panels, da ...AllModule
-  //Lichtablauf einzeln mit Dimmfunktion
+  //Lichtablauf von aussen nach innen mit Dimmfunktion
    for (int i = 7; i >= 0; i--) 
-    {//i steht für die Zeile. Die 1 an der zweitletzten Stelle ist fürs Einschalten
-      setRGBWSlowOnOffAllModule(i, 1, 0, 1, 0, 1, 1, 20);  // Serial port for debugging purposes 
+    {
+      setRGBWSlowOnOffAllModule(i, 1, 0, 1, 0, 1, SPEED_ALL_MODULE, SKIP_ALL_MODULE);
       Serial.println("Dimmenup");
     } 
 
   for (int i = 7; i >= 0; i--) 
   {
-    setRGBWSlowOnOffAllModule(i, 1, 0, 1, 0, 0, 1, 20);
+    setRGBWSlowOnOffAllModule(i, 1, 0, 1, 0, 0, SPEED_ALL_MODULE, SKIP_ALL_MODULE);
     Serial.println("Dimmendown");  
   }
-  
-
-  //Zeilenweise ein und direkt wieder aus
-  //Lichtablauf einzeln mit Dimmfunktion
-  for (int i = 0; i < 8; i++)
-  {
-    setRGBWSlowOnOffAllModule(i, 1, 1, 0, 0, 1, 10, 20);  // Serial port for debugging purposes
-    delay(250);
-    setRGBWSlowOnOffAllModule(i, 1, 1, 0, 0, 0, 10, 20); //fürs Ausschalten verantwortlich
-    delay(250);
-  }
-  
-  //Lichtablauf einzeln mit Dimmfunktion
-  for (int i = 0; i < 8; i++)
-  {
-    setRGBWSlowOnOffAllModule(i, 0, 0, 0, 1, 1, 10, 20);  // Serial port for debugging purposes
-    delay(250);
-    setRGBWSlowOnOffAllModule(i, 0, 0, 0, 1, 0, 10, 20);
-    delay(250);
-  }
+  setRGBWSlowOnOff3(0, 0, 0, 0, 1, 1, SPEED_3, SKIP_3); //weiss
+  setRGBWSlowOnOff3(0, 0, 1, 0, 1, 1, SPEED_3, SKIP_3); //grün
 }
 
 /// @brief Setzt alle LED's aktiv oder inaktiv
@@ -294,7 +265,6 @@ void enableLED(bool enable){
 
 /// @brief Löscht alle PWM Werte auf einem Treiber
 void clearAllLed(){
-  
   for (int z = 0; z < LEDMODULES; z++)
   {
     for (int i = 0; i < LEDPCS; i++)
@@ -326,7 +296,6 @@ void setRGBWValue(u_int8_t led, u_int16_t ledR, u_int16_t ledG, u_int16_t ledB, 
     PCA[4+z].setPWM(led*4 + LEDG, 0, ledG);
     PCA[4+z].setPWM(led*4 + LEDB, 0, ledB);
     PCA[4+z].setPWM(led*4 + LEDW, 0, ledW);
-
     }
   }
 };
@@ -354,9 +323,7 @@ void setRGBWValueBar(u_int8_t row, u_int16_t ledR, u_int16_t ledG, u_int16_t led
       PCA[z].setPWM((row%4)*4 + LEDB, 0, ledB);
       PCA[z].setPWM((row%4)*4 + LEDW, 0, ledW);
       }
-
     }
-  
 };
 
 /// @brief Schreibt angegebene Farbwerte auf LED  
@@ -366,10 +333,10 @@ void setRGBWValueBar(u_int8_t row, u_int16_t ledR, u_int16_t ledG, u_int16_t led
 /// @param ledB Helligkeitswert 0...4095 blau
 /// @param ledW Helligkeitswert 0...4095 weiss
 void setRGBWValueBarAllModule(u_int8_t row, u_int16_t ledR, u_int16_t ledG, u_int16_t ledB, u_int16_t ledW){
-  if(row < 4){
+  if(row < 4){ //für die ersten vier Zeilen auf jedem Modul
     for (int z = 0; z < 10; z=z+2)
       {
-      PCA[z].setPWM((row%4)*4 + LEDR, 0, ledR);
+      PCA[z].setPWM((row%4)*4 + LEDR, 0, ledR); 
       PCA[z].setPWM((row%4)*4 + LEDG, 0, ledG);
       PCA[z].setPWM((row%4)*4 + LEDB, 0, ledB);
       PCA[z].setPWM((row%4)*4 + LEDW, 0, ledW);
@@ -382,7 +349,7 @@ void setRGBWValueBarAllModule(u_int8_t row, u_int16_t ledR, u_int16_t ledG, u_in
       PCA[z+20].setPWM((row%4)*4 + LEDB, 0, ledB);
       PCA[z+20].setPWM((row%4)*4 + LEDW, 0, ledW);
       }
-  }else{
+  }else{ //für Zeile 5-8
     for (int z = 1; z < 10; z=z+2)
       {
       PCA[z].setPWM((row%4)*4 + LEDR, 0, ledR);
@@ -398,9 +365,7 @@ void setRGBWValueBarAllModule(u_int8_t row, u_int16_t ledR, u_int16_t ledG, u_in
       PCA[z+20].setPWM((row%4)*4 + LEDB, 0, ledB);
       PCA[z+20].setPWM((row%4)*4 + LEDW, 0, ledW);
       }
-
     }
-  //}
 };
 
 /// @brief Schreibt angegebene Farbwerte auf LED  
@@ -411,35 +376,82 @@ void setRGBWValueBarAllModule(u_int8_t row, u_int16_t ledR, u_int16_t ledG, u_in
 /// @param ledW Helligkeitswert 0...4095 weiss
 void setRGBWValue(u_int16_t element, u_int8_t led, u_int16_t ledR, u_int16_t ledG, u_int16_t ledB, u_int16_t ledW){
 
-    PCA[element].setPWM(led*4 + LEDR, 0, ledR);
-    PCA[element].setPWM(led*4 + LEDG, 0, ledG);
-    PCA[element].setPWM(led*4 + LEDB, 0, ledB);
-    PCA[element].setPWM(led*4 + LEDW, 0, ledW);
+  PCA[element].setPWM(led*4 + LEDR, 0, ledR);
+  PCA[element].setPWM(led*4 + LEDG, 0, ledG);
+  PCA[element].setPWM(led*4 + LEDB, 0, ledB);
+  PCA[element].setPWM(led*4 + LEDW, 0, ledW);
 
 };
 
-void setRGBWSlowOnOff(u_int8_t led, bool ledR, bool ledG, bool ledB, bool ledW, bool on, u_int16_t speed){
+void setRGBWSlowOnOff(u_int8_t led, bool ledR, bool ledG, bool ledB, bool ledW, bool on, u_int16_t speed){ //Dimmfunktion (nur bei einem Modul)
   int pwmValue = 0;
   for (int i = 0; i < 100; i++)
   { 
     pwmValue = on ? sinLUT[i] : sinLUT[99-i];
-    //setRGBWValue(led, (ledR ? pwmValue : 0), (ledG ? pwmValue : 0), (ledB ? pwmValue : 0), (ledW ? pwmValue : 0));
     setRGBWValueBar(led, (ledR ? pwmValue : 0), (ledG ? pwmValue : 0), (ledB ? pwmValue : 0), (ledW ? pwmValue : 0));
     delay(speed);
   }
 }
 
 
+//Licht läuft langsam von innen nach aussen (3 Zeilen)
+void setRGBWSlowOnOff3(u_int8_t led, bool ledR, bool ledG, bool ledB, bool ledW, bool direction, u_int16_t speed, u_int16_t SkipModul){
+  int pwmValueUp = 0;
+  int pwmValueDown = 0;
+//SkipModule
+  for(int y = 0; y < 10; y++){
+    led = y;
+    if(y == 0){
+      for (int i = 0; i <= 100; i=i+SkipModul)
+      {
+        pwmValueUp = sinLUT[i];
+        setRGBWValueBarAllModule(led, (ledR ? pwmValueUp : 0), (ledG ? pwmValueUp : 0), (ledB ? pwmValueUp : 0), (ledW ? pwmValueUp : 0));
+      }
+    }else if(y == 1){
+      for (int i = 0; i <= 100; i=i+SkipModul)
+      { 
+        pwmValueUp = sinLUT[i];
+        setRGBWValueBarAllModule(led, (ledR ? pwmValueUp : 0), (ledG ? pwmValueUp : 0), (ledB ? pwmValueUp : 0), (ledW ? pwmValueUp : 0));
+      }
+    }else if(y >= 2 && y <= 7){
+      for (int i = 0; i <= 100; i=i+SkipModul)
+      { 
+        i == 100 ? i = 99: i = i;
+        pwmValueUp = sinLUT[i];
+        pwmValueDown = sinLUT[99-i]; 
+        //müssen gleichzeitig ausgeführt werden
+        setRGBWValueBarAllModule(led-2, (ledR ? pwmValueDown : 0), (ledG ? pwmValueDown : 0), (ledB ? pwmValueDown : 0), (ledW ? pwmValueDown : 0));
+        setRGBWValueBarAllModule(led, (ledR ? pwmValueUp : 0), (ledG ? pwmValueUp : 0), (ledB ? pwmValueUp : 0), (ledW ? pwmValueUp : 0));
+      }
+    }else if(y == 8){
+      for (int i = 0; i <= 100; i=i+SkipModul)
+      {
+        i == 100 ? i = 99: i = i;
+        pwmValueDown = sinLUT[99-i];
+        setRGBWValueBarAllModule(led-2, (ledR ? pwmValueDown : 0), (ledG ? pwmValueDown : 0), (ledB ? pwmValueDown : 0), (ledW ? pwmValueDown : 0));
+      }
+    }else{
+      for (int i = 0; i <= 100; i=i+SkipModul)
+      { 
+        i == 100 ? i = 99: i = i;
+        pwmValueDown = sinLUT[99-i];
+        setRGBWValueBarAllModule(led-2, (ledR ? pwmValueDown : 0), (ledG ? pwmValueDown : 0), (ledB ? pwmValueDown : 0), (ledW ? pwmValueDown : 0));
+      }
+    }
+  }
+}
+
 void setRGBWSlowOnOffAllModule(u_int8_t led, bool ledR, bool ledG, bool ledB, bool ledW, bool on, u_int16_t speed, u_int16_t SkipModule){ 
+  //Dimmfunktion für alle Module
+  //SkipModule steht fürs Überspringen von einzelnen Werte in der Sinusfunktion/Sinuskurve --> Dimmen wird schneller
   int pwmValue = 0;
-  if (SkipModule % 10 != 0)
+  if (SkipModule % 10 != 0) //Was geschehen soll, wenn Modulo 10 nicht aufgeht
   {
   }
     for (int i = 0; i <= 100; i=i+SkipModule)
   { 
     i == 100 ? i = 99: i = i;
     pwmValue = on ? sinLUT[i] : sinLUT[99-i];
-    //setRGBWValue(led, (ledR ? pwmValue : 0), (ledG ? pwmValue : 0), (ledB ? pwmValue : 0), (ledW ? pwmValue : 0));
     setRGBWValueBarAllModule(led, (ledR ? pwmValue : 0), (ledG ? pwmValue : 0), (ledB ? pwmValue : 0), (ledW ? pwmValue : 0));
     delay(speed);
   }
@@ -463,7 +475,7 @@ void checkHardware(){
 }
 
 void setRGBWValueColumn(u_int8_t offset, int pwmValue, bool ledR, bool ledG, bool ledB, bool ledW, bool on, u_int16_t speed){
-  //i steht für die einzelnen LED's
+  //Einzelne Spalten werden angesprochen
   setRGBWValue(offset, 0, (ledR ? pwmValue : 0), (ledG ? pwmValue : 0), (ledB ? pwmValue : 0), (ledW ? pwmValue : 0));
   setRGBWValue(offset, 1, (ledR ? pwmValue : 0), (ledG ? pwmValue : 0), (ledB ? pwmValue : 0), (ledW ? pwmValue : 0));
   setRGBWValue(offset, 2, (ledR ? pwmValue : 0), (ledG ? pwmValue : 0), (ledB ? pwmValue : 0), (ledW ? pwmValue : 0));
@@ -475,22 +487,21 @@ void setRGBWValueColumn(u_int8_t offset, int pwmValue, bool ledR, bool ledG, boo
   delay(150);
 }
 
-void setRGBWSlowOnOffColumn (bool on, u_int16_t speed, u_int8_t SkipModule){
-    for(int y = 0; y < 3; y++){ //y ist das Modul
-      for(int z = 0; z < 5; z++)//z steht für eine ganze Spalte
+void setRGBWSlowOnOffColumn (bool on, u_int16_t speed, u_int8_t SkipModule){ //Dimmen einer einzelnen Spalte
+  for(int y = 0; y < 3; y++){ //y ist das Modul
+    for(int z = 0; z < 5; z++)//z steht für eine ganze Spalte
+    { 
+      int pwmValue = 0;
+
+      for (int i = 0; i <= 100; i=i+SkipModule)
       { 
-        int pwmValue = 0;
-
-        for (int i = 0; i <= 100; i=i+SkipModule)
-  { 
-    i == 100 ? i = 99: i = i;
+        i == 100 ? i = 99: i = i;
           
-          pwmValue = on ? sinLUT[i] : sinLUT[99-i];
-          setRGBWValueColumn(z*2 + y*10, pwmValue, 0, 0, 1, 0, 1, speed);
-          delay(speed);
-        }
+        pwmValue = on ? sinLUT[i] : sinLUT[99-i];
+        setRGBWValueColumn(z*2 + y*10, pwmValue, 0, 0, 1, 0, 1, speed);
+        delay(speed);
       }
-      delay(500);
     }
+    delay(500);
+  }
 }
-
